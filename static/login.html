@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in · Halcyon Guard</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%234ad34f'/%3E%3Cpath d='M16 6l8 3v6c0 5-3.4 8.6-8 11-4.6-2.4-8-6-8-11V9z' fill='%2313201a'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Public+Sans:wght@400..700&display=swap">
+  <link rel="stylesheet" href="style.css?v=8">
+</head>
+<body class="login-body">
+  <header class="nav">
+    <div class="nav-inner">
+      <span class="logo">
+        <span class="mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 2.5l7.5 2.8v5.6c0 4.7-3.2 8.2-7.5 10.6-4.3-2.4-7.5-5.9-7.5-10.6V5.3z" fill="currentColor"/></svg>
+        </span>
+        Halcyon Guard
+      </span>
+    </div>
+  </header>
+
+  <main class="sheet login-sheet">
+    <section class="login-intro">
+      <h1>Your AI agent can pay bills. Only you decide which ones.</h1>
+      <p class="lede">Sign in to Asha's banking app. Every payment her AI agent tries is checked against the permission she gave, before the bank carries it out.</p>
+      <ul class="login-points">
+        <li><span class="pill allow">Allow</span> payments that match what you asked for</li>
+        <li><span class="pill pause">Pause</span> anything unfamiliar until you approve it</li>
+        <li><span class="pill block">Block</span> everything else, with the reason in plain English</li>
+      </ul>
+    </section>
+
+    <section class="card login-card" aria-labelledby="h-signin">
+      <h2 id="h-signin">Sign in</h2>
+      <form id="login-form" novalidate>
+        <label for="customer-id">Customer ID</label>
+        <input id="customer-id" name="customer_id" autocomplete="username" autocapitalize="none" spellcheck="false" required maxlength="64">
+        <label for="pin">PIN</label>
+        <input id="pin" name="pin" type="password" inputmode="numeric" autocomplete="current-password" required maxlength="20">
+        <p id="login-error" class="login-error" role="alert" hidden></p>
+        <button type="submit" id="signin" class="btn primary wide">Sign in</button>
+      </form>
+
+      <div class="demo-account">
+        <p><b>Demo account</b> <span class="muted">(fictional data)</span></p>
+        <p class="muted">Customer ID <code>asha</code> · PIN <code>1234</code></p>
+        <button type="button" id="use-demo" class="btn small">Use demo account</button>
+      </div>
+    </section>
+  </main>
+
+  <p class="foot login-foot">Team Halcyon Overflow · BuildX 2026</p>
+
+  <script src="login.js?v=1"></script>
+</body>
+</html>

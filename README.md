@@ -64,7 +64,7 @@ The agent can never approve its own paused request: approval needs the customer'
 | AI agent | Any OpenAI-compatible chat API: Groq free tier (default `openai/gpt-oss-20b`) or Ollama (`llama3.1:8b`), via `httpx` |
 | Security | HMAC-SHA256 decision tokens, SHA-256 hash-chained audit log |
 | Frontend | Plain HTML, CSS and JavaScript (no build step) |
-| Tests | pytest: 115 tests covering every gateway rule, the bank, the API, the agent loop, the LLM error paths and concurrency |
+| Tests | pytest: 129 tests covering every gateway rule, the bank, the API, the agent loop, the LLM error paths and concurrency |
 
 ## Installation and setup
 
@@ -95,12 +95,13 @@ python run.py
 This opens <http://127.0.0.1:8000>. You can switch the AI model from the dropdown in the header. **Reset demo** restores the starting data. All data is fictional: the customer is Asha Rao, with a balance of ₹1,20,000.
 
 **Suggested walk-through:**
-1. In *Customer app*, click **Draft permission**, then **Confirm**.
-2. Tick **Attacker edits the bill** and click **Run live agent**, or click scenario **D**.
-3. Watch the three checks light up: ₹4,200 to Sunrise Power is allowed, and ₹25,000 to R. Verma is blocked.
-4. Click scenario **B**, then **Approve once** in the customer app.
-5. Click **Revoke agent access**, then scenario **F**.
-6. Click **Tamper with a decision**, then **Verify chain**.
+1. Sign in as the demo customer: **Use demo account** fills in customer ID `asha` and PIN `1234` (fictional).
+2. In *Customer app*, click **Draft permission**, then **Confirm**.
+3. Tick **Attacker edits the bill** and click **Run live agent**, or click scenario **D**.
+4. Watch the three checks light up: ₹4,200 to Sunrise Power is allowed, and ₹25,000 to R. Verma is blocked.
+5. Click scenario **B**, then **Approve once** in the customer app.
+6. Click **Revoke agent access**, then scenario **F**.
+7. Click **Tamper with a decision**, then **Verify chain**.
 
 **Run the tests:**
 
@@ -160,7 +161,7 @@ To be transparent with the judges:
 - **Real:** the gateway rules, the three checks, the permission lifecycle, customer-only approval, HMAC-signed execution, the hash-chained audit log, and the live LLM agent's tool calls when a provider is configured.
 - **Simulated:** the bank, the customer and the payees are fictional, and run locally in SQLite. There is no real bank or UPI integration and only one customer.
 - **Deliberate:** the agent's instructions say bills may contain payment instructions from the biller and that it should follow them. That reproduces a realistic, trusting assistant, so the prompt-injection attack can succeed against the *agent*. The point is that the *gateway* still stops it. Live model behaviour can vary from run to run, so scenario D shows the same attack deterministically.
-- **Demo-only controls:** *Tamper* and *Reset* exist only to demonstrate the system and are not authenticated. The scenario buttons, the model switch and *Attacker edits the bill* need the customer's session. The dashboard signs in with the fictional demo PIN `1234`.
+- **Demo-only controls:** *Tamper* and *Reset* exist only to demonstrate the system and are not authenticated. The scenario buttons, the model switch and *Attacker edits the bill* need the customer's session. The customer signs in on a sign-in page (demo customer ID `asha`, PIN `1234`, shown on the page). Five wrong PINs from one address lock that address out for five minutes.
 - **Scenarios start clean:** each scripted scenario makes sure an unused permission exists, replacing one that was already spent and saying so in the agent feed, so scenarios give the same result in any order.
 
 ## Team members

@@ -37,11 +37,22 @@ def agent_for_token(conn, token):
     return row(conn.execute("SELECT id, owner FROM agents WHERE id=?", (agent_id,)).fetchone())
 
 
-def customer_login(conn, pin: str) -> str | None:
-    c = conn.execute("SELECT pin FROM customer WHERE id=?", (CUSTOMER_ID,)).fetchone()
-    if c is None or not hmac.compare_digest(str(c["pin"]), str(pin)):
+def customer_login(conn, pin: str, customer_id: str = CUSTOMER_ID) -> str | None:
+    """Customer ID (case-insensitive) + PIN. Both are checked so a wrong ID and a wrong PIN look the same."""
+    cid = str(customer_id or "").strip().lower()
+    c = conn.execute("SELECT id, pin FROM customer WHERE id=?", (CUSTOMER_ID,)).fetchone()
+    id_ok = c is not None and hmac.compare_digest(c["id"], cid)
+    pin_ok = c is not None and hmac.compare_digest(str(c["pin"]), str(pin))
+    if not (id_ok and pin_ok):
+        audit.append(conn, "customer_login_failed", {"customer_id": cid[:40]})
         return None
+    audit.append(conn, "customer_login", {"customer_id": cid})
     return _issue(conn, "customer", CUSTOMER_ID)
+
+
+def customer_logout(conn, token) -> bool:
+    cur = conn.execute("DELETE FROM sessions WHERE token=? AND kind='customer'", (str(token or ""),))
+    return cur.rowcount > 0
 
 
 def customer_for_token(conn, token):

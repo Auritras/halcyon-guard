@@ -4,11 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Halcyon Guard</title>
+  <script>/* not signed in: go to the sign-in page before anything renders */
+    try { if (!localStorage.getItem("halcyon.customerToken") && !sessionStorage.getItem("halcyon.customerToken")) location.replace("/login.html"); } catch (e) {}
+  </script>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%234ad34f'/%3E%3Cpath d='M16 6l8 3v6c0 5-3.4 8.6-8 11-4.6-2.4-8-6-8-11V9z' fill='%2313201a'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Public+Sans:wght@400..700&display=swap">
-  <link rel="stylesheet" href="style.css?v=7">
+  <link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
   <header class="nav">
@@ -36,6 +39,7 @@
         </label>
         <button id="reset" class="nav-btn">Reset demo</button>
         <span class="who"><span class="avatar" aria-hidden="true">A</span><span id="who">Signing in…</span></span>
+        <button id="signout" class="signout" type="button">Sign out</button>
       </div>
     </div>
   </header>
@@ -163,6 +167,6 @@
   </main>
 
   <div id="toast" class="toast" role="status"></div>
-  <script src="app.js?v=6"></script>
+  <script src="app.js?v=7"></script>
 </body>
 </html>

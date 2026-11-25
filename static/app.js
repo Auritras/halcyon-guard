@@ -2,12 +2,17 @@
 "use strict";
 
 const $ = (id) => document.getElementById(id);
-const PIN = "1234"; // fictional demo customer
+// The customer signs in on login.html; the session token is kept in browser storage.
+const TOKEN_KEY = "halcyon.customerToken";
+const tokenStore = {
+  get() { try { return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY); } catch { return null; } },
+  clear() { try { localStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(TOKEN_KEY); } catch { /* storage blocked */ } },
+};
 const LABEL = { ALLOW: "Allowed", PAUSE: "Paused", BLOCK: "Blocked" };
 const RESULT = { pass: "Pass", warn: "Warning", fail: "Fail", skip: "Not checked" };
 const EXPECT = { A: "ALLOW", B: "PAUSE", C: "BLOCK", D: "BLOCK", E: "BLOCK", F: "BLOCK" };
 const EXPECT_TEXT = { A: "Allow", B: "Pause", C: "Block", D: "Allow, then block", E: "Block", F: "Block" };
-let customerToken = null;
+let customerToken = tokenStore.get();
 let state = null;
 let sseOpen = false;
 let brokenAt = null;
@@ -37,6 +42,7 @@ async function api(path, { method = "GET", body, customer = false } = {}) {
   const res = await fetch(path, { method, headers, body: body ? JSON.stringify(body) : undefined });
   let data = null;
   try { data = await res.json(); } catch { /* empty body */ }
+  if (customer && res.status === 401) toLogin(); // session ended (signed out, or the server restarted)
   if (!res.ok) throw new Error((data && typeof data.detail === "string" && data.detail) || `Request failed (${res.status}).`);
   return data;
 }
@@ -306,8 +312,13 @@ async function runAgentCall(path, body, customer = false) {
     if (!sseOpen) res.events.forEach(handleAgentEvent); // fallback if live updates are down
   } catch (err) { toast(err.message); }
 }
-async function login() {
-  try { customerToken = (await post("/api/customer/login", { pin: PIN })).token; } catch (err) { toast(err.message); }
+function toLogin() {
+  tokenStore.clear();
+  location.replace("/login.html");
+}
+async function signOut() {
+  try { await post("/api/customer/logout", null, true); } catch { /* signing out anyway */ }
+  toLogin();
 }
 
 // ---------- actions ----------
@@ -370,7 +381,6 @@ $("provider").addEventListener("change", async (ev) => {
 
 $("reset").addEventListener("click", async () => {
   try { await post("/api/reset"); } catch (err) { toast(err.message); return; }
-  await login(); // a fresh session, in case the old one is gone
   clearDecisions();
   brokenAt = null;
   $("feed").innerHTML = '<li class="empty">Nothing yet.</li>';
@@ -429,7 +439,12 @@ window.addEventListener("scroll", markNav, { passive: true });
 // ---------- start ----------
 async function start() {
   document.querySelectorAll("#gates li").forEach((g) => (g.dataset.default = g.querySelector("p").textContent));
-  await login();
+  if (!customerToken) { toLogin(); return; }
+  try {
+    const me = await fetch("/api/customer/me", { headers: { "X-Customer-Token": customerToken } });
+    if (me.status === 401) { toLogin(); return; }
+  } catch { /* server unreachable: refresh() below reports it */ }
+  $("signout").addEventListener("click", signOut);
   await refresh();
   if (state) {
     renderScenarios();

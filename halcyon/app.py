@@ -16,9 +16,12 @@ from .events import EventBus
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 AGENT_LLM_TIMEOUT = 15  # seconds per model call, so a stalled provider fails fast on stage
+LOGIN_LIMIT = 5         # wrong PINs from one address ...
+LOGIN_WINDOW = 300      # ... within this many seconds lock that address out until the window passes
 
 
 class PinBody(BaseModel):
+    customer_id: str = Field(default=store.CUSTOMER_ID, max_length=64)
     pin: str = Field(max_length=20)
 
 
@@ -83,12 +86,44 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         raise HTTPException(401, "Customer login required.")
 
     # --- logins ---
+    failed_logins: dict[str, list[float]] = {}  # client address -> times of recent wrong PINs
+    login_guard = threading.Lock()
+
+    def _client(request: Request) -> str:
+        return request.client.host if request.client else "unknown"
+
     @app.post("/api/customer/login")
-    def customer_login(body: PinBody, conn=Depends(db)):
-        token = auth.customer_login(conn, body.pin)
+    def customer_login(body: PinBody, request: Request, conn=Depends(db)):
+        who, now = _client(request), time.monotonic()
+        with login_guard:
+            recent = [t for t in failed_logins.get(who, []) if now - t < LOGIN_WINDOW]
+            failed_logins[who] = recent
+            if len(recent) >= LOGIN_LIMIT:
+                mins = max(1, round((LOGIN_WINDOW - (now - recent[0])) / 60))
+                raise HTTPException(429, f"Too many wrong attempts. Try again in about {mins} minute"
+                                         f"{'s' if mins > 1 else ''}.")
+        token = auth.customer_login(conn, body.pin, body.customer_id)
+        with login_guard:
+            if not token:
+                failed_logins.setdefault(who, []).append(now)
+            else:
+                failed_logins.pop(who, None)
         if not token:
-            raise HTTPException(401, "Wrong PIN.")
-        return {"token": token}
+            raise HTTPException(401, "That customer ID and PIN don't match.")
+        name = conn.execute("SELECT name FROM customer").fetchone()["name"]
+        return {"token": token, "name": name}
+
+    @app.get("/api/customer/me")
+    def customer_me(request: Request, conn=Depends(db)):
+        if not auth.customer_for_token(conn, request.headers.get("x-customer-token")):
+            raise HTTPException(401, "Not signed in.")
+        c = conn.execute("SELECT id, name FROM customer").fetchone()
+        return {"id": c["id"], "name": c["name"]}
+
+    @app.post("/api/customer/logout")
+    def customer_logout(request: Request, conn=Depends(db)):
+        auth.customer_logout(conn, request.headers.get("x-customer-token"))
+        return {"ok": True}
 
     @app.post("/api/agent/login")
     def agent_login(body: AgentLoginBody, conn=Depends(db)):
