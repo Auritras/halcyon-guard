@@ -69,8 +69,8 @@ The agent can never approve its own paused request: approval needs the customer'
 You need **Python 3.10 or newer**.
 
 ```bash
-git clone <this-repo-url>
-cd <repo-folder>
+git clone https://github.com/Auritras/halcyon-guard.git
+cd halcyon-guard
 python -m venv .venv
 # Windows:   .venv\Scripts\activate
 # macOS/Linux: source .venv/bin/activate
