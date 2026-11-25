@@ -1,6 +1,7 @@
 """HTTP API and dashboard server."""
 import json
 import threading
+import time
 from pathlib import Path
 from typing import Literal
 
@@ -185,7 +186,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "scenarios": agent.SCENARIOS,
             "agent_running": agent_lock.locked(),
             "scenario_running": scenario_lock.locked(),
+            "public_demo": settings.public_demo,
         }
+
+    @app.get("/api/health")
+    def health():
+        return {"ok": True}
 
     # --- audit log ---
     @app.get("/api/audit/verify")
@@ -237,8 +243,24 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if event["kind"] in ("decision", "setup", "customer"):
             changed()
 
+    last_live_run = {"at": 0.0}
+    cooldown_lock = threading.Lock()
+
+    def _check_cooldown():
+        """On a public deployment, space out live runs so one visitor can't use up the free AI quota."""
+        if not settings.agent_cooldown:
+            return
+        with cooldown_lock:
+            wait = settings.agent_cooldown - (time.monotonic() - last_live_run["at"])
+            if last_live_run["at"] and wait > 0:
+                raise HTTPException(429, f"The live agent was just used. Try again in {int(wait) + 1} seconds, "
+                                         f"or use the scripted scenarios.")
+            last_live_run["at"] = time.monotonic()
+
     @app.post("/api/agent/run")
     def run_agent(body: TaskBody):
+        _check_cooldown()
+
         def go(conn):
             def chat(messages, tools):
                 return llm.chat(messages, tools, settings=settings, timeout=AGENT_LLM_TIMEOUT)

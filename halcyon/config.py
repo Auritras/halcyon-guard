@@ -17,6 +17,19 @@ class Settings:
     ollama_model: str = "llama3.1:8b"
     db_path: str = "halcyon.db"
     hmac_secret: str = "halcyon-demo-secret"
+    public_demo: bool = False   # shown as a "shared public demo" note on the page
+    agent_cooldown: int = 0     # seconds between live agent runs (protects a shared Groq quota)
+
+
+def _flag(name: str) -> bool:
+    return os.getenv(name, "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _int(name: str) -> int:
+    try:
+        return max(0, int(os.getenv(name, "0").strip() or 0))
+    except ValueError:
+        return 0
 
 
 def get_settings() -> Settings:
@@ -32,4 +45,6 @@ def get_settings() -> Settings:
         ollama_model=os.getenv("OLLAMA_MODEL", "").strip() or Settings.ollama_model,
         db_path=os.getenv("DB_PATH", "").strip() or Settings.db_path,
         hmac_secret=os.getenv("HMAC_SECRET", "").strip() or Settings.hmac_secret,
+        public_demo=_flag("PUBLIC_DEMO"),
+        agent_cooldown=_int("AGENT_COOLDOWN"),
     )

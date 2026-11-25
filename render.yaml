@@ -1,0 +1,29 @@
+# Render blueprint: render.com → New → Blueprint → pick this repo.
+# Free plan: the service sleeps after 15 minutes idle and takes ~50 s to wake.
+services:
+  - type: web
+    name: halcyon-guard
+    runtime: python
+    plan: free
+    region: singapore
+    buildCommand: pip install -r requirements.txt
+    startCommand: python run.py --no-browser
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: HOST
+        value: 0.0.0.0
+      - key: PUBLIC_DEMO
+        value: "1"
+      # seconds between live AI agent runs, so visitors can't use up the free Groq quota
+      - key: AGENT_COOLDOWN
+        value: "20"
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-20b
+      - key: HMAC_SECRET
+        generateValue: true
+      # Render asks for this when you create the blueprint.
+      # Leave it empty for a scripted-only site; paste a Groq key to enable the live agent.
+      - key: GROQ_API_KEY
+        sync: false

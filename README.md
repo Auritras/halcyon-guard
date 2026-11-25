@@ -112,6 +112,16 @@ python -m pytest -q
 - *No Wi-Fi*: switch to Ollama or None in the header.
 - *Port 8000 busy*: set `PORT=8001` before running.
 
+## Deploy (Render, free)
+
+The repo includes a [`render.yaml`](render.yaml) blueprint. On [render.com](https://render.com), choose **New → Blueprint**, then pick this repository. Render asks for `GROQ_API_KEY`: leave it empty for a scripted-only site, or paste a key to enable the live agent.
+
+The public site differs from a local run in a few ways:
+- It shows a "shared public demo" note, because every visitor sees the same fictional account.
+- It allows one live agent run every 20 seconds, so visitors can't use up the free Groq quota.
+- Its data resets whenever the service restarts.
+- The free plan sleeps after 15 minutes with no visitors, so the first visit after that takes about 50 seconds to load.
+
 ## Project architecture
 
 ```

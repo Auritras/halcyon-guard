@@ -46,6 +46,7 @@ const post = (path, body, customer = false) => api(path, { method: "POST", body,
 function render() {
   if (!state) return;
   $("who").textContent = `${state.customer.name} · Customer`;
+  $("public-note").hidden = !state.public_demo;
   $("provider").value = state.provider;
   renderSummary();
   renderProviderHint();
