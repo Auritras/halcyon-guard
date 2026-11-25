@@ -52,7 +52,8 @@ const post = (path, body, customer = false) => api(path, { method: "POST", body,
 // ---------- rendering ----------
 function render() {
   if (!state) return;
-  $("who").textContent = `${state.customer.name} · Customer`;
+  $("who").textContent = state.customer.name.split(" ")[0];
+  $("who").title = `Signed in as ${state.customer.name}`;
   $("public-note").hidden = !state.public_demo;
   $("provider").value = state.provider;
   renderSummary();
@@ -154,9 +155,19 @@ function renderGrants() {
   }).join("") + endedNote;
 }
 
+let lastPendingIds = null;
 function renderPending() {
   const el = $("pending");
   const pend = state.requests.filter((r) => r.status === "pending");
+  const badge = $("wait-badge");
+  badge.textContent = pend.length;
+  badge.hidden = !pend.length;
+  const ids = pend.map((r) => r.id);
+  if (lastPendingIds !== null && ids.some((id) => !lastPendingIds.includes(id))) {
+    phoneTab("wait");
+    badge.classList.remove("bump"); void badge.offsetWidth; badge.classList.add("bump");
+  }
+  lastPendingIds = ids;
   if (!pend.length) { el.innerHTML = '<p class="empty">Nothing needs your approval.</p>'; return; }
   el.innerHTML = pend.map((r) => `
     <div class="item needs">
@@ -383,13 +394,18 @@ async function runAgentCall(path, body, customer = false) {
     if (!sseOpen) res.events.forEach(handleAgentEvent); // fallback if live updates are down
   } catch (err) { toast(err.message); }
 }
-function toLogin() {
+function toLogin(signedOut = false) {
   tokenStore.clear();
-  location.replace("/login.html");
+  location.replace(signedOut ? "/login.html?signedout=1" : "/login.html");
 }
 async function signOut() {
+  // the dashboard folds away, the shield closes, then we land on the sign-in page
+  document.body.classList.add("leaving-now");
+  $("leaving").hidden = false;
+  const done = new Promise((r) => setTimeout(r, reduceMotion ? 0 : 750));
   try { await post("/api/customer/logout", null, true); } catch { /* signing out anyway */ }
-  toLogin();
+  await done;
+  toLogin(true);
 }
 
 // ---------- actions ----------
@@ -414,7 +430,7 @@ function showAuditEntry(seq) {
   if (e.kind === "gateway_decision") {
     clearDecisions();
     showDecision({ ...e.data, request: {} });
-    document.querySelector(".gateway").scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+    $("gateway-card").scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "nearest" });
     toast(`Replaying the checks recorded in entry #${seq}.`);
   } else {
     toast(`#${seq} ${e.kind.replace(/_/g, " ")}: ${JSON.stringify(e.data)}`);
@@ -454,7 +470,8 @@ $("reset").addEventListener("click", async () => {
   try { await post("/api/reset"); } catch (err) { toast(err.message); return; }
   clearDecisions();
   brokenAt = null;
-  $("feed").innerHTML = '<li class="empty">Nothing yet.</li>';
+  $("feed").innerHTML = '<li class="empty">Nothing yet. Run the agent or a scenario.</li>';
+  phoneTab("perm");
   $("intent-result").innerHTML = "";
   $("chain").textContent = "";
   $("chain").className = "pill";
@@ -485,27 +502,46 @@ $("tamper").addEventListener("click", async () => {
   } catch (err) { toast(err.message); }
 });
 
-// agent tabs
-function selectTab(live) {
-  $("tab-live").setAttribute("aria-selected", String(live));
-  $("tab-script").setAttribute("aria-selected", String(!live));
-  $("panel-live").hidden = !live;
-  $("panel-script").hidden = live;
+// ---------- screens ----------
+// One page, three screens. The gateway and activity cards are shared: each screen has slots they move into.
+const VIEWS = {
+  demo: { title: "Live demo", lede: "Give the agent a permission, let it work, and watch Halcyon Guard check every payment before Asha's bank carries it out.",
+          slots: { "gateway-card": "slot-gateway-demo", "feed-card": "slot-feed-demo" } },
+  scenarios: { title: "Scenarios", lede: "Twelve scripted cases: everyday payments, attacks, agent mistakes and an agent pushing its limits. No AI model needed.",
+               slots: { "gateway-card": "slot-gateway-scen", "feed-card": "slot-feed-scen" } },
+  audit: { title: "Audit log", lede: "Every request, check and decision is chained with hashes, so the record can be verified and any later edit is caught.",
+           slots: { "gateway-card": "slot-gateway-audit" } },
+};
+let currentView = null;
+function showView(name, { push = true } = {}) {
+  if (!VIEWS[name]) name = "demo";
+  const v = VIEWS[name];
+  const changed = currentView !== name;
+  currentView = name;
+  document.querySelectorAll(".view").forEach((el) => (el.hidden = el.dataset.view !== name));
+  document.querySelectorAll(".view-tab").forEach((t) => t.setAttribute("aria-selected", String(t.dataset.view === name)));
+  for (const [card, slot] of Object.entries(v.slots)) $(slot).appendChild($(card));
+  if (!v.slots["feed-card"]) document.querySelector(".parking").appendChild($("feed-card"));
+  $("view-title").textContent = v.title;
+  $("view-lede").textContent = v.lede;
+  if (changed) {
+    const el = $(`view-${name}`);
+    el.classList.remove("view-in");
+    void el.offsetWidth;
+    el.classList.add("view-in");
+  }
+  if (push && location.hash !== `#${name}`) history.replaceState(null, "", `#${name}`);
 }
-$("tab-live").addEventListener("click", () => selectTab(true));
-$("tab-script").addEventListener("click", () => selectTab(false));
+document.querySelectorAll(".view-tab").forEach((t) => t.addEventListener("click", () => showView(t.dataset.view)));
+window.addEventListener("hashchange", () => showView(location.hash.slice(1), { push: false }));
 
-// highlight the nav link for the part of the page in view
-function markNav() {
-  const atBottom = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 8;
-  const audit = atBottom || $("audit-log").getBoundingClientRect().top < window.innerHeight * 0.5;
-  const side = $("customer").getBoundingClientRect();
-  const stacked = side.left < 200; // on narrow screens the customer panel sits below the gateway
-  const customer = stacked && side.top < window.innerHeight * 0.5 && !audit;
-  const id = audit ? "audit-log" : customer ? "customer" : "top";
-  document.querySelectorAll(".nav-links a").forEach((a) => a.classList.toggle("on", a.getAttribute("href") === `#${id}`));
+// Asha's phone has three tabs
+function phoneTab(name) {
+  document.querySelectorAll(".phone-tabs [data-ptab]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.ptab === name)));
+  ["perm", "wait", "hist"].forEach((k) => ($(`pane-${k}`).hidden = k !== name));
 }
-window.addEventListener("scroll", markNav, { passive: true });
+document.querySelectorAll(".phone-tabs [data-ptab]").forEach((b) => b.addEventListener("click", () => phoneTab(b.dataset.ptab)));
+$("ring").addEventListener("click", () => { showView("demo"); phoneTab("wait"); $("customer").scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "nearest" }); });
 
 // ---------- start ----------
 async function start() {
@@ -517,12 +553,13 @@ async function start() {
   } catch { /* server unreachable: refresh() below reports it */ }
   $("signout").addEventListener("click", signOut);
   $("run-all").addEventListener("click", runAll);
+  showView(location.hash.slice(1) || "demo", { push: false });
   await refresh();
-  if (state) {
-    renderScenarios();
-    if (state.provider === "none" || (state.provider === "groq" && !state.groq_key_set)) selectTab(false);
-  }
-  markNav();
+  if (state) renderScenarios();
+  // the dashboard assembles itself once, after sign-in
+  const arrive = () => document.body.classList.remove("entering");
+  requestAnimationFrame(arrive);
+  setTimeout(arrive, 60); // fallback: never leave the page hidden
   connectEvents();
 }
 start();
