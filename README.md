@@ -6,6 +6,8 @@ Halcyon Guard is a policy gateway that sits between an AI agent and a bank. Ever
 
 > Every payment checked. Every decision recorded.
 
+**Live demo:** [halcyon-guard.onrender.com](https://halcyon-guard.onrender.com). A shared public demo with fictional data, on a free server: the first visit after a quiet spell can take about 50 seconds to wake up.
+
 ## Problem statement
 
 Banks and fintechs are starting to let AI agents act on customers' accounts. A valid login proves the agent is who it says it is. It doesn't prove that each action is what the customer wanted. An agent can:

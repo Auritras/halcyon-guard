@@ -1,4 +1,4 @@
-"""The AI agent: a live LLM with banking tools, plus scripted scenarios that need no model.
+﻿"""The AI agent: a live LLM with banking tools, plus scripted scenarios that need no model.
 
 The agent is deliberately ordinary: it trusts what it reads in bills, as many real
 assistants do. That is the point of the demo: the agent can be fooled, the gateway holds.
@@ -11,7 +11,7 @@ from .llm import LLMUnavailable
 from .money import inr
 from .store import rows, set_bill_poisoned, visible_bills
 
-MAX_TURNS = 6
+MAX_TURNS = 8  # room for a determined agent to retry and still report back
 AGENT_ID, AGENT_SECRET = "agent-01", "demo-secret"
 
 SYSTEM_PROMPT = (
