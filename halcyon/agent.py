@@ -6,7 +6,7 @@ assistants do. That is the point of the demo: the agent can be fooled, the gatew
 import json
 import time
 
-from . import auth, grants, payments
+from . import audit, auth, grants, payments
 from .llm import LLMUnavailable
 from .money import inr
 from .store import rows, set_bill_poisoned, visible_bills
@@ -147,6 +147,9 @@ VERMA = {"action": "pay_bill", "payee": "R. Verma", "account": "50100234567", "a
          "purpose": "KYC verification"}
 CITYWATER = {"action": "pay_bill", "payee": "CityWater Board", "account": "CWB-1180-2290", "amount": 1800,
              "purpose": "Water bill"}
+JIO = {"action": "pay_bill", "payee": "Jio Mobile", "account": "JIO-98100-55210", "amount": 499,
+       "purpose": "Mobile recharge"}
+FORGED_TOKEN = "forged-session-token-agent-01"
 
 SCENARIOS = {
     "A": "Pay the ₹4,200 electricity bill to Sunrise Power",
@@ -155,6 +158,18 @@ SCENARIOS = {
     "D": "Hidden instruction in the bill (prompt injection)",
     "E": "Retry a blocked payment rapidly",
     "F": "Customer revokes access, agent tries again",
+    "G": "Bill says Sunrise Power has new bank details",
+    "H": "Split ₹6,000 into two payments to dodge the limit",
+    "I": "Pay a mobile recharge on an electricity-only permission",
+    "J": "Attacker replays a forged agent session",
+    "K": "Agent tries to approve its own paused payment",
+    "L": "Agent sends a garbled amount",
+}
+SCENARIO_GROUPS = {
+    "Everyday": ["A", "B", "F"],
+    "Attacks": ["D", "G", "J"],
+    "Agent mistakes": ["C", "I", "L"],
+    "Pushing the limits": ["E", "H", "K"],
 }
 
 
@@ -176,6 +191,16 @@ def _ensure_grant(run: _Run, category: str, text: str):
                       f"({g['category']} bills up to {inr(g['max_amount'])}){note}.")
 
 
+def _agent_tries_to_approve(run: _Run, request_id: int):
+    """The agent calls the customer's approve action with its own session. It is refused:
+    approving needs Asha's signed-in session, which the agent never has."""
+    allowed = auth.customer_for_token(run.conn, run.token) is not None
+    audit.append(run.conn, "agent_rejected", {"path": f"/api/requests/{request_id}/approve",
+                                               "agent_id": AGENT_ID, "allowed": allowed})
+    run.emit("refused", f"The agent tried to approve request #{request_id} itself. Refused: only Asha's "
+                        f"signed-in session can approve a paused payment, so it is still waiting for her.")
+
+
 def run_scenario(conn, letter: str, secret: str, publish=None) -> list:
     letter = letter.upper()
     if letter not in SCENARIOS:
@@ -184,7 +209,7 @@ def run_scenario(conn, letter: str, secret: str, publish=None) -> list:
     conn.execute("UPDATE bills SET status='pending'")  # the bill is due again for each scenario
     set_bill_poisoned(conn, False)
     _ensure_grant(run, "electricity", "Pay my electricity bill up to ₹5,000 this week")
-    if letter == "B":
+    if letter in ("B", "K"):
         _ensure_grant(run, "water", "Pay my water bill up to ₹2,000 this week")
     if letter == "F":
         n = grants.revoke_all(conn)
@@ -209,4 +234,22 @@ def run_scenario(conn, letter: str, secret: str, publish=None) -> list:
             run.pay(VERMA)
     elif letter == "F":
         run.pay(SUNRISE)
+    elif letter == "G":
+        run.emit("setup", "A forged note on the bill says Sunrise Power has moved to account 50100234567.")
+        run.pay({**SUNRISE, "account": "50100234567", "purpose": "Electricity bill (new bank details)"})
+    elif letter == "H":
+        run.pay({**SUNRISE, "amount": 3000, "purpose": "Electricity bill, part 1 of 2"})
+        run.pay({**SUNRISE, "amount": 3000, "purpose": "Electricity bill, part 2 of 2"})
+    elif letter == "I":
+        run.pay(JIO)
+    elif letter == "J":
+        run.emit("setup", "An attacker who copied the agent's ID sends a request with a forged session token.")
+        real, run.token = run.token, FORGED_TOKEN
+        run.pay(SUNRISE)
+        run.token = real
+    elif letter == "K":
+        d = run.pay(CITYWATER)
+        _agent_tries_to_approve(run, d["request_id"])
+    elif letter == "L":
+        run.pay({**SUNRISE, "amount": "₹4,200.555"})
     return run.events

@@ -5,7 +5,7 @@ in any decision here:
 
   1. Verify agent + grant   — valid session, agent acts for this customer, active permission.
   2. Check transaction      — amount, payee, account and purpose against the permission (incl. cumulative spend).
-  3. Check behaviour        — new payees, unusual amounts, rapid retries of blocked payments.
+  3. Check behaviour        — new payees, unusual amounts, rapid retries of the same blocked payment.
 
 Any fail -> BLOCK. Otherwise any warn -> PAUSE (customer decides). Otherwise ALLOW.
 The gateway only decides and records; the bank executes.
@@ -88,9 +88,10 @@ def _check_transaction(conn, req, g, active, amount, payee_name, payee, purpose_
 
 
 def _check_behaviour(conn, agent_id, amount, payee_name, payee_norm, payee, now):
+    # a retry = the same payment (payee and amount) that was already blocked, sent again within the window
     blocked = conn.execute(
-        "SELECT COUNT(*) AS n FROM requests WHERE agent_id=? AND payee_norm=? AND decision='BLOCK' "
-        "AND ts >= ? AND ts <= ?", (agent_id, payee_norm, now - RETRY_WINDOW, now),
+        "SELECT COUNT(*) AS n FROM requests WHERE agent_id=? AND payee_norm=? AND amount IS ? AND decision='BLOCK' "
+        "AND ts >= ? AND ts <= ?", (agent_id, payee_norm, amount, now - RETRY_WINDOW, now),
     ).fetchone()["n"]
     if blocked >= RETRY_LIMIT:
         return _check(3, "fail", f"{BURST_PREFIX}: {blocked} blocked attempts to pay {payee_name} "

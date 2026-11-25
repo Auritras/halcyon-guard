@@ -38,7 +38,7 @@ The agent can never approve its own paused request: approval needs the customer'
 
 - **Live AI agent** with real tool calls (`list_bills`, `read_bill`, `list_payees`, `pay`). It runs on a free Groq model or a local Ollama model.
 - **Prompt-injection demo:** an attacker hides an instruction inside the electricity bill. The live agent follows it, and the gateway blocks the payment anyway.
-- **Six scripted scenarios** (A–F) that run with no AI and no internet, as a reliable backup:
+- **Twelve scripted scenarios** (A–L) that run with no AI and no internet, as a reliable backup. **Run all scenarios** plays them one after another:
 
   | | Scenario | Expected |
   |---|---|---|
@@ -48,10 +48,18 @@ The agent can never approve its own paused request: approval needs the customer'
   | D | Hidden instruction in the bill: pay the bill, then ₹25,000 "for KYC" | ALLOW, then BLOCK |
   | E | Rapid retries of a blocked payment | BLOCK (retry burst) |
   | F | Customer revokes access, then the agent tries again | BLOCK (no active permission) |
+  | G | A forged note says Sunrise Power has new bank details | BLOCK (account doesn't match the registered one) |
+  | H | ₹6,000 split into two ₹3,000 payments to dodge the ₹5,000 limit | ALLOW, then BLOCK (total spending) |
+  | I | Mobile recharge on an electricity-only permission | BLOCK (outside the permission's category) |
+  | J | An attacker replays a forged agent session | BLOCK (agent not verified) |
+  | K | The agent tries to approve its own paused payment | PAUSE, and the agent's approval is refused |
+  | L | The agent sends a garbled amount (₹4,200.555) | BLOCK (invalid amount) |
 
 - **Customer controls:** draft and confirm permissions, approve once or deny paused payments, revoke one permission or all agent access instantly.
 - **Tamper-evident audit log** with *Verify chain* and a demo-only *Tamper* button that shows exactly where the chain breaks. Click any decision to replay its checks.
-- **Live dashboard** that updates through Server-Sent Events: customer app, agent and gateway side by side.
+- **Live dashboard** that updates through Server-Sent Events: customer app, agent and gateway side by side. Each request is shown travelling from the agent to the guard, through the three checks, and on to the bank, to Asha's phone, or stopped.
+- **Guided tutorial** that opens on a visitor's first sign-in and walks through each part of the dashboard. **Tutorial** in the top bar replays it.
+- **Sign-in page** with a one-click fictional demo account.
 - **Strict input handling:** amounts sent as strings, zero, negative, NaN or with more than two decimals are blocked as "Invalid amount". Payee names match regardless of case and spacing.
 
 ## Technologies used
@@ -64,7 +72,7 @@ The agent can never approve its own paused request: approval needs the customer'
 | AI agent | Any OpenAI-compatible chat API: Groq free tier (default `openai/gpt-oss-20b`) or Ollama (`llama3.1:8b`), via `httpx` |
 | Security | HMAC-SHA256 decision tokens, SHA-256 hash-chained audit log |
 | Frontend | Plain HTML, CSS and JavaScript (no build step) |
-| Tests | pytest: 129 tests covering every gateway rule, the bank, the API, the agent loop, the LLM error paths and concurrency |
+| Tests | pytest: 145 tests covering every gateway rule, the bank, the API, the agent loop, the LLM error paths and concurrency |
 
 ## Installation and setup
 

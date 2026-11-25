@@ -97,6 +97,7 @@ def reset(conn: sqlite3.Connection) -> None:
             [
                 ("Sunrise Power", "SUNP-0042-7781", "electricity", json.dumps([3500, 4100, 4800])),
                 ("CityWater Board", "CWB-1180-2290", "water", json.dumps([])),
+                ("Jio Mobile", "JIO-98100-55210", "mobile", json.dumps([399, 399, 499])),
             ],
         )
         conn.executemany(

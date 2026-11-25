@@ -219,6 +219,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "models": {"groq": settings.groq_model, "ollama": settings.ollama_model},
             "groq_key_set": bool(settings.groq_api_key),
             "scenarios": agent.SCENARIOS,
+            "scenario_groups": agent.SCENARIO_GROUPS,
             "agent_running": agent_lock.locked(),
             "scenario_running": scenario_lock.locked(),
             "public_demo": settings.public_demo,

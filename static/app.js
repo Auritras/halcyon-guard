@@ -10,8 +10,9 @@ const tokenStore = {
 };
 const LABEL = { ALLOW: "Allowed", PAUSE: "Paused", BLOCK: "Blocked" };
 const RESULT = { pass: "Pass", warn: "Warning", fail: "Fail", skip: "Not checked" };
-const EXPECT = { A: "ALLOW", B: "PAUSE", C: "BLOCK", D: "BLOCK", E: "BLOCK", F: "BLOCK" };
-const EXPECT_TEXT = { A: "Allow", B: "Pause", C: "Block", D: "Allow, then block", E: "Block", F: "Block" };
+const EXPECT = { A: "ALLOW", B: "PAUSE", C: "BLOCK", D: "BLOCK", E: "BLOCK", F: "BLOCK", G: "BLOCK", H: "BLOCK", I: "BLOCK", J: "BLOCK", K: "PAUSE", L: "BLOCK" };
+const EXPECT_TEXT = { A: "Allow", B: "Pause", C: "Block", D: "Allow, then block", E: "Block", F: "Block",
+  G: "Block", H: "Allow, then block", I: "Block", J: "Block", K: "Pause, agent refused", L: "Block" };
 let customerToken = tokenStore.get();
 let state = null;
 let sseOpen = false;
@@ -66,12 +67,28 @@ function render() {
   document.querySelectorAll("#scenarios .tile").forEach((b) => (b.disabled = state.scenario_running));
 }
 
+let shownBalance = null;
+function countTo(el, target) {
+  const from = shownBalance;
+  shownBalance = target;
+  if (from === null || from === target || reduceMotion) { el.textContent = inr(target); return; }
+  const t0 = performance.now(), dur = 700;
+  el.classList.add(target < from ? "down" : "up");
+  const step = (t) => {
+    const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+    el.textContent = inr(Math.round(from + (target - from) * e));
+    if (k < 1 && shownBalance === target) requestAnimationFrame(step);
+    else { el.textContent = inr(shownBalance); setTimeout(() => el.classList.remove("down", "up"), 400); }
+  };
+  requestAnimationFrame(step);
+}
+
 function renderSummary() {
   const reqs = state.requests;
   const n = { ALLOW: 0, PAUSE: 0, BLOCK: 0 };
   reqs.forEach((r) => { n[r.decision] = (n[r.decision] || 0) + 1; });
   const waiting = reqs.filter((r) => r.status === "pending").length;
-  $("balance").textContent = inr(state.balance);
+  countTo($("balance"), state.balance);
   $("n-allow").textContent = n.ALLOW;
   $("n-pause").textContent = n.PAUSE;
   $("n-block").textContent = n.BLOCK;
@@ -196,22 +213,58 @@ function auditSummary(e) {
     default: return esc(e.kind.replace(/_/g, " "));
   }
 }
+let lastAuditSeq = null;
 function renderAudit() {
+  const newest = state.audit.length ? state.audit[0].seq : 0;
+  const seen = lastAuditSeq;
+  lastAuditSeq = newest;
   $("audit").innerHTML = state.audit.map((e) => {
-    const broken = brokenAt !== null && e.seq >= brokenAt ? "broken" : "";
-    return `<li class="${broken}"><button data-audit="${e.seq}" title="Show details">
+    const cls = [];
+    if (brokenAt !== null && e.seq >= brokenAt) cls.push("broken");
+    if (seen !== null && e.seq > seen) cls.push("fresh");
+    const i = brokenAt !== null ? Math.max(0, e.seq - brokenAt) : 0;
+    return `<li class="${cls.join(" ")}" style="--i:${i}"><button data-audit="${e.seq}" title="Show details">
       <span class="seq">#${e.seq}</span><span>${auditSummary(e)}</span>
       <span class="hash">prev ${e.prev_hash.slice(0, 8)} · hash ${e.hash.slice(0, 8)}</span></button></li>`;
   }).join("");
 }
 
+function tile(k) {
+  const cls = (EXPECT[k] || "").toLowerCase();
+  return `<button class="tile" data-scenario="${k}">
+      <span class="tile-top"><span class="letter">${k}</span><span class="pill ${cls}">${EXPECT_TEXT[k] || ""}</span></span>
+      <span class="t">${esc(state.scenarios[k])}</span></button>`;
+}
 function renderScenarios() {
-  $("scenarios").innerHTML = Object.entries(state.scenarios).map(([k, v]) => {
-    const cls = EXPECT[k].toLowerCase();
-    return `<button class="tile" data-scenario="${k}">
-      <span class="tile-top"><span class="letter">${k}</span><span class="pill ${cls}">${EXPECT_TEXT[k]}</span></span>
-      <span class="t">${esc(v)}</span></button>`;
-  }).join("");
+  const groups = state.scenario_groups || { Scenarios: Object.keys(state.scenarios) };
+  $("scenarios").innerHTML = Object.entries(groups).map(([name, keys]) =>
+    `<h3 class="group-title">${esc(name)}</h3><div class="tiles">${keys.map(tile).join("")}</div>`).join("");
+}
+
+// Play every scenario in turn: a hands-free tour for the video.
+let tourRunning = false;
+async function runAll() {
+  if (tourRunning) { tourRunning = false; return; }
+  const btn = $("run-all");
+  const order = Object.values(state.scenario_groups || {}).flat();
+  tourRunning = true;
+  btn.textContent = "Stop the tour";
+  try {
+    for (const k of order) {
+      if (!tourRunning) break;
+      document.querySelectorAll(".tile").forEach((t) => t.classList.toggle("playing", t.dataset.scenario === k));
+      $("tour-status").textContent = `Playing ${k}: ${state.scenarios[k]}`;
+      await runAgentCall(`/api/agent/scenario/${k}`, null, true);
+      await new Promise((r) => setTimeout(r, 250));
+      await animQueue;
+      await sleep(1200);
+    }
+  } finally {
+    tourRunning = false;
+    btn.textContent = "Run all scenarios";
+    $("tour-status").textContent = "";
+    document.querySelectorAll(".tile.playing").forEach((t) => t.classList.remove("playing"));
+  }
 }
 
 // ---------- gateway animation ----------
@@ -228,6 +281,11 @@ function clearDecisions() {
   animToken++;
   animQueue = Promise.resolve();
 }
+function setFlow(stage) {
+  const f = $("flow");
+  if (!f) return;
+  f.className = "flow" + (stage ? " " + stage : "");
+}
 function resetGates() {
   document.querySelectorAll("#gates li").forEach((g) => {
     g.className = "";
@@ -243,11 +301,17 @@ async function playDecision(d, my) {
   $("request").innerHTML = `<strong>${amount}</strong> to ${esc(d.payee)}` + (req.purpose ? ` <span class="muted">for “${esc(req.purpose)}”</span>` : "");
   resetGates();
   $("verdict").innerHTML = "";
+  setFlow("");
+  void $("flow")?.offsetWidth; // restart the travel animation
+  setFlow("to-guard");
+  await sleep(550);
   const gates = [...document.querySelectorAll("#gates li")];
   for (const c of d.checks) {
-    await sleep(320);
     if (my !== animToken) return;
     const g = gates[c.n - 1];
+    if (c.result !== "skip") { g.className = "checking"; await sleep(420); }
+    else await sleep(120);
+    if (my !== animToken) return;
     g.className = c.result;
     g.querySelector("p").textContent = c.detail;
     const pill = g.querySelector(".res");
@@ -256,6 +320,7 @@ async function playDecision(d, my) {
   }
   await sleep(220);
   if (my !== animToken) return;
+  setFlow({ ALLOW: "to-bank", PAUSE: "to-customer", BLOCK: "stopped" }[d.decision]);
   let extra = "";
   if (d.decision === "PAUSE") extra = '<p class="hint">Sent to the customer app. Only Asha can approve it.</p>';
   if (d.bank) extra += `<p class="hint">${d.bank.ok ? `The bank executed it. New balance ${inr(d.bank.balance)}.` : `The bank refused: ${esc(d.bank.reason)}`}</p>`;
@@ -266,7 +331,7 @@ async function playDecision(d, my) {
 
 // ---------- agent feed ----------
 function feedItem(e) {
-  const kinds = { login: "Login", tool: "Tool", decision: "", say: "Agent", thinking: "Agent", error: "Problem", setup: "Set-up", customer: "Customer" };
+  const kinds = { login: "Login", tool: "Tool", decision: "", say: "Agent", thinking: "Agent", error: "Problem", setup: "Set-up", customer: "Customer", refused: "Refused" };
   const li = document.createElement("li");
   li.className = e.kind + (e.decision ? ` d-${e.decision}` : "");
   const tag = e.kind === "decision" ? LABEL[e.decision] : kinds[e.kind] || e.kind;
@@ -283,6 +348,12 @@ function feedItem(e) {
 function handleAgentEvent(e) {
   feedItem(e);
   if (e.kind === "decision") showDecision(e);
+  if (e.kind === "refused") {
+    animQueue = animQueue.then(() => {
+      const v = $("verdict").querySelector(".verdict-text");
+      if (v) v.insertAdjacentHTML("beforeend", `<p class="refused-note">${esc(e.text)}</p>`);
+    });
+  }
 }
 
 // ---------- data ----------
@@ -445,6 +516,7 @@ async function start() {
     if (me.status === 401) { toLogin(); return; }
   } catch { /* server unreachable: refresh() below reports it */ }
   $("signout").addEventListener("click", signOut);
+  $("run-all").addEventListener("click", runAll);
   await refresh();
   if (state) {
     renderScenarios();

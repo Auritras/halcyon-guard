@@ -19,7 +19,9 @@ BuildX requires a video of about **5 minutes** that introduces every team member
 | **3:10–3:40** | Scenario B, customer column | Click **B**. "A water board Asha has never paid fits the purpose, so it isn't blocked. It's paused." Click **Approve once**. "Only Asha can approve. The agent's token is rejected on that endpoint." |
 | **3:40–4:05** | Revoke + scenario F | Click **Revoke agent access**, then **F**. "Access revoked, and the next attempt is blocked at check 1." |
 | **4:05–4:35** | Audit strip | Click **Tamper with a decision**, then **Verify chain**. "Every request, check and decision is hash-chained. Someone edited a blocked decision to look approved, and verification shows the exact entry where the chain breaks." |
-| **4:35–5:00** | Code / tests (optional), then slide 3 | "FastAPI and SQLite, 129 automated tests, and it runs free on Groq or offline on Ollama. Next steps: a sandbox pilot with a bank, then transfers and cards. Every payment checked. Every decision recorded." |
+| **4:35–5:00** | Code / tests (optional), then slide 3 | "FastAPI and SQLite, 145 automated tests, and it runs free on Groq or offline on Ollama. Next steps: a sandbox pilot with a bank, then transfers and cards. Every payment checked. Every decision recorded." |
+
+**Extra footage, if you have time:** press **Run all scenarios** for a hands-free tour of all 12 cases (about a minute). Scenario **K**, where the agent tries to approve its own payment, makes a strong 10-second clip.
 
 **If something goes wrong during recording**
 - Groq is slow or rate-limited: switch to **None** and use scenario **D**. It shows the same attack.
