@@ -5,6 +5,8 @@ BuildX requires a video of about **5 minutes** that introduces every team member
 **Before recording**
 - Run `python run.py`, open the dashboard full-screen at 1440 px wide or more, and click **Reset demo**.
 - If you'll use the live agent, do one trial run with Groq first. Keep scenario D ready as the backup.
+- Groq's free tier allows only a few agent runs a minute. Wait about a minute between takes, or you'll see a "rate limit (429)" message.
+- The default model is `openai/gpt-oss-20b`. In testing it fell for the hidden bill instruction 3 times out of 3, but models vary, so check before you record.
 - Zoom the browser to about 110% so text is readable in the video.
 
 | Time | On screen | Say (roughly) |

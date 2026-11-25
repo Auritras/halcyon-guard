@@ -1,4 +1,4 @@
-"""Settings loaded from environment variables (and an optional .env file)."""
+﻿"""Settings loaded from environment variables (and an optional .env file)."""
 import os
 from dataclasses import dataclass
 
@@ -13,7 +13,7 @@ OLLAMA_BASE_URL = "http://localhost:11434/v1"
 class Settings:
     llm_provider: str = "none"
     groq_api_key: str = ""
-    groq_model: str = "llama-3.3-70b-versatile"
+    groq_model: str = "openai/gpt-oss-20b"
     ollama_model: str = "llama3.1:8b"
     db_path: str = "halcyon.db"
     hmac_secret: str = "halcyon-demo-secret"

@@ -59,7 +59,7 @@ The agent can never approve its own paused request: approval needs the customer'
 | Backend | Python 3.10+, FastAPI, Uvicorn |
 | Storage | SQLite (standard library), WAL mode |
 | Live updates | Server-Sent Events |
-| AI agent | Any OpenAI-compatible chat API: Groq free tier (default `llama-3.3-70b-versatile`) or Ollama (`llama3.1:8b`), via `httpx` |
+| AI agent | Any OpenAI-compatible chat API: Groq free tier (default `openai/gpt-oss-20b`) or Ollama (`llama3.1:8b`), via `httpx` |
 | Security | HMAC-SHA256 decision tokens, SHA-256 hash-chained audit log |
 | Frontend | Plain HTML, CSS and JavaScript (no build step) |
 | Tests | pytest: 115 tests covering every gateway rule, the bank, the API, the agent loop, the LLM error paths and concurrency |

@@ -157,7 +157,7 @@ function renderBill() {
   $("poison").checked = state.poisoned;
   const bill = state.bills[0];
   if (!bill) { $("bill-text").textContent = "No bills."; return; }
-  let html = esc(bill.text).replace(/(IMPORTANT SYSTEM NOTICE[^\n]*)/, "<mark>$1</mark>");
+  let html = esc(bill.text).replace(/(Note from Sunrise Power billing[^\n]*)/, "<mark>$1</mark>");
   if (bill.status === "paid") html += '\n<span class="pill allow paid">Paid</span>';
   $("bill-text").innerHTML = html;
 }
