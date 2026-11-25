@@ -4,109 +4,164 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Halcyon Guard</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23e5711c'/%3E%3Cpath d='M16 6l8 3v6c0 5-3.4 8.6-8 11-4.6-2.4-8-6-8-11V9z' fill='%23fff'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Lora:wght@600;700&display=swap">
-  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Public+Sans:wght@400..700&display=swap">
+  <link rel="stylesheet" href="style.css?v=2">
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">
-      <h1>Halcyon Guard</h1>
-      <p>Every agent payment is checked against what the customer actually asked for.</p>
-    </div>
-    <div class="controls">
-      <label for="provider">AI model for the agent</label>
-      <select id="provider">
-        <option value="groq">Groq (free, online)</option>
-        <option value="ollama">Ollama (local, offline)</option>
-        <option value="none">None (scripted only)</option>
-      </select>
-      <button id="reset" class="ghost">Reset demo</button>
+  <header class="nav">
+    <div class="nav-inner">
+      <a class="logo" href="#top" aria-label="Halcyon Guard">
+        <span class="mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 2.5l7.5 2.8v5.6c0 4.7-3.2 8.2-7.5 10.6-4.3-2.4-7.5-5.9-7.5-10.6V5.3z" fill="currentColor"/></svg>
+        </span>
+        Halcyon Guard
+      </a>
+      <nav class="nav-links" aria-label="Sections">
+        <a href="#top" class="on">Gateway</a>
+        <a href="#customer">Customer app</a>
+        <a href="#audit-log">Audit log</a>
+      </nav>
+      <div class="nav-right">
+        <label class="model">
+          <span class="dot" id="model-dot" aria-hidden="true"></span>
+          <span class="sr">AI model for the agent</span>
+          <select id="provider">
+            <option value="groq">Groq · free, online</option>
+            <option value="ollama">Ollama · local, offline</option>
+            <option value="none">No AI · scripted only</option>
+          </select>
+        </label>
+        <button id="reset" class="nav-btn">Reset demo</button>
+        <span class="who"><span class="avatar" aria-hidden="true">A</span><span id="who">Signing in…</span></span>
+      </div>
     </div>
   </header>
 
-  <main class="grid">
-    <!-- Customer -->
-    <section class="col customer" aria-labelledby="h-customer">
-      <h2 id="h-customer">Customer app</h2>
-      <p class="who" id="who">Signing in…</p>
-
-      <form id="intent-form" class="card">
-        <label for="intent">Tell the agent what it may do</label>
-        <textarea id="intent" rows="2">Pay my electricity bill up to ₹5,000 this week</textarea>
-        <button type="submit">Draft permission</button>
-        <div id="intent-result" aria-live="polite"></div>
-      </form>
-
-      <h3>Permissions</h3>
-      <div id="grants" class="stack"></div>
-
-      <h3>Waiting for you</h3>
-      <div id="pending" class="stack" aria-live="polite"></div>
-
-      <h3>Recently blocked</h3>
-      <div id="blocked" class="stack"></div>
-      <button id="revoke-all" class="danger">Revoke agent access</button>
-    </section>
-
-    <!-- Agent -->
-    <section class="col agent" aria-labelledby="h-agent">
-      <h2 id="h-agent">AI agent</h2>
-      <form id="task-form" class="card">
-        <label for="task">Task for the agent</label>
-        <input id="task" value="Pay my pending bills" maxlength="500">
-        <button type="submit" id="run">Run live agent</button>
-        <p class="hint" id="provider-hint"></p>
-      </form>
-
-      <div class="card bill">
-        <div class="bill-head">
-          <h3>Bill the agent will read</h3>
-          <label class="switch"><input type="checkbox" id="poison"> Attacker edits the bill</label>
-        </div>
-        <pre id="bill-text"></pre>
-      </div>
-
-      <h3>Scripted scenarios <span class="muted">(no AI needed)</span></h3>
-      <div id="scenarios" class="scenarios"></div>
-
-      <h3>What the agent did</h3>
-      <ol id="feed" class="feed" aria-live="polite"></ol>
-    </section>
-
-    <!-- Gateway + bank -->
-    <section class="col guard" aria-labelledby="h-guard">
-      <h2 id="h-guard">Halcyon Guard</h2>
-      <div class="request" id="request"><span class="muted">Waiting for the agent's first payment request.</span></div>
-      <ol class="gates" id="gates">
-        <li data-n="1"><b>Verify agent + grant</b><span>Identity, owner and an active permission.</span></li>
-        <li data-n="2"><b>Check transaction</b><span>Amount, payee and purpose against the permission.</span></li>
-        <li data-n="3"><b>Check behaviour</b><span>New payees, unusual amounts, rapid retries.</span></li>
-      </ol>
-      <div class="verdict" id="verdict" aria-live="assertive"></div>
-
-      <div class="bank">
-        <h3>Bank</h3>
-        <p class="balance"><span id="balance">—</span><small>Asha's balance</small></p>
-        <ul id="txns" class="txns"></ul>
-      </div>
-    </section>
-  </main>
-
-  <section class="audit" aria-labelledby="h-audit">
-    <div class="audit-head">
-      <h2 id="h-audit">Audit log</h2>
-      <p class="muted">Each entry's hash includes the one before it, so editing any past entry breaks the chain from that point on.</p>
-      <div class="audit-actions">
-        <span id="chain" class="chain"></span>
-        <button id="verify" class="ghost">Verify chain</button>
-        <button id="tamper" class="ghost">Tamper with a decision</button>
+  <main class="sheet" id="top">
+    <div class="page-head">
+      <div>
+        <h1>Payment gateway</h1>
+        <p class="lede">Every payment the AI agent tries is checked against what Asha actually allowed, before her bank carries it out.</p>
       </div>
     </div>
-    <ol id="audit" class="audit-list"></ol>
-  </section>
+
+    <!-- summary bar -->
+    <section class="summary" id="summary" aria-live="polite">
+      <div class="ring" id="ring"><span id="ring-n">0</span></div>
+      <p id="summary-text">No payments yet. Give the agent a permission, then run it.</p>
+      <dl class="stats">
+        <div><dt>Balance</dt><dd id="balance">—</dd></div>
+        <div class="s-allow"><dt>Allowed</dt><dd id="n-allow">0</dd></div>
+        <div class="s-pause"><dt>Paused</dt><dd id="n-pause">0</dd></div>
+        <div class="s-block"><dt>Blocked</dt><dd id="n-block">0</dd></div>
+      </dl>
+    </section>
+
+    <div class="layout">
+      <div class="main-col">
+        <!-- gateway -->
+        <section class="card gateway" aria-labelledby="h-gateway">
+          <div class="card-head">
+            <h2 id="h-gateway">Halcyon Guard</h2>
+            <span class="hint">Three checks · fixed rules, no AI</span>
+          </div>
+          <div class="request" id="request"><span class="muted">Waiting for the agent's first payment request.</span></div>
+          <ol class="gates" id="gates">
+            <li data-n="1"><div class="gate-head"><span class="num">1</span><b>Verify agent + grant</b><span class="pill res"></span></div><p>Identity, owner and an active permission.</p></li>
+            <li data-n="2"><div class="gate-head"><span class="num">2</span><b>Check transaction</b><span class="pill res"></span></div><p>Amount, payee, account and purpose against the permission.</p></li>
+            <li data-n="3"><div class="gate-head"><span class="num">3</span><b>Check behaviour</b><span class="pill res"></span></div><p>New payees, unusual amounts, rapid retries.</p></li>
+          </ol>
+          <div class="verdict" id="verdict" aria-live="assertive"></div>
+        </section>
+
+        <!-- agent -->
+        <section class="card agent" aria-labelledby="h-agent">
+          <div class="card-head">
+            <h2 id="h-agent">AI agent</h2>
+            <div class="seg" role="tablist" aria-label="How the agent runs">
+              <button role="tab" id="tab-live" aria-selected="true" aria-controls="panel-live">Live agent</button>
+              <button role="tab" id="tab-script" aria-selected="false" aria-controls="panel-script">Scripted scenarios</button>
+            </div>
+          </div>
+
+          <div id="panel-live" role="tabpanel" aria-labelledby="tab-live">
+            <form id="task-form" class="row-form">
+              <label for="task" class="sr">Task for the agent</label>
+              <input id="task" value="Pay my pending bills" maxlength="500">
+              <button type="submit" id="run" class="btn primary">Run live agent</button>
+            </form>
+            <p class="hint" id="provider-hint"></p>
+            <div class="bill">
+              <div class="bill-head">
+                <h3>The bill the agent will read</h3>
+                <label class="toggle"><input type="checkbox" id="poison"><span>Attacker edits the bill</span></label>
+              </div>
+              <pre id="bill-text"></pre>
+            </div>
+          </div>
+
+          <div id="panel-script" role="tabpanel" aria-labelledby="tab-script" hidden>
+            <p class="hint">Fixed requests that need no AI model and no internet: a safe backup for the video.</p>
+            <div id="scenarios" class="tiles"></div>
+          </div>
+
+          <h3 class="feed-title">What the agent did</h3>
+          <ol id="feed" class="feed" aria-live="polite"><li class="empty">Nothing yet.</li></ol>
+        </section>
+      </div>
+
+      <!-- customer side panel -->
+      <aside class="side" id="customer" aria-labelledby="h-customer">
+        <div class="side-head">
+          <h2 id="h-customer">Customer app</h2>
+          <span class="hint">What Asha sees on her phone</span>
+        </div>
+
+        <form id="intent-form" class="card tight">
+          <label for="intent"><b>Tell the agent what it may do</b></label>
+          <textarea id="intent" rows="2">Pay my electricity bill up to ₹5,000 this week</textarea>
+          <button type="submit" class="btn">Draft permission</button>
+          <div id="intent-result" aria-live="polite"></div>
+        </form>
+
+        <h3>Permissions</h3>
+        <div id="grants" class="stack"></div>
+
+        <h3>Waiting for you</h3>
+        <div id="pending" class="stack" aria-live="polite"></div>
+
+        <h3>Recently blocked</h3>
+        <div id="blocked" class="stack"></div>
+        <button id="revoke-all" class="btn danger wide">Revoke agent access</button>
+
+        <h3>Payments made</h3>
+        <ul id="txns" class="txns"></ul>
+      </aside>
+    </div>
+
+    <!-- audit -->
+    <section class="card audit" id="audit-log" aria-labelledby="h-audit">
+      <div class="card-head">
+        <div>
+          <h2 id="h-audit">Audit log</h2>
+          <p class="hint">Each entry's hash includes the one before it, so editing any past entry breaks the chain from that point on. Click a decision to replay its checks.</p>
+        </div>
+        <div class="audit-actions">
+          <span id="chain" class="pill"></span>
+          <button id="verify" class="btn">Verify chain</button>
+          <button id="tamper" class="btn ghost">Tamper with a decision</button>
+        </div>
+      </div>
+      <ol id="audit" class="chainlist"></ol>
+    </section>
+
+    <p class="foot">Team Halcyon Overflow · BuildX 2026 · All data is fictional.</p>
+  </main>
 
   <div id="toast" class="toast" role="status"></div>
-  <script src="app.js"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>
