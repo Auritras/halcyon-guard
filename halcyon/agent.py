@@ -70,11 +70,12 @@ class _Run:
     def tool(self, call: dict) -> str:
         fn = call.get("function") or {}
         name = fn.get("name", "")
+        raw = fn.get("arguments") or "{}"
         try:
-            args = json.loads(fn.get("arguments") or "{}")
+            args = raw if isinstance(raw, dict) else json.loads(raw)  # some providers send a dict
             if not isinstance(args, dict):
                 raise ValueError
-        except ValueError:
+        except (TypeError, ValueError):
             result = "Error: the tool arguments were not valid JSON."
             self.emit("tool", f"{name}(…)", name=name, args=fn.get("arguments"), result=result)
             return result
@@ -128,7 +129,12 @@ def run_task(conn, task: str, llm_chat, secret: str, publish=None) -> list:
             run.emit("thinking", msg["content"].strip())
         messages.append({"role": "assistant", "content": msg.get("content") or "", "tool_calls": calls})
         for call in calls:
-            messages.append({"role": "tool", "tool_call_id": call.get("id", ""), "content": run.tool(call)})
+            try:
+                result = run.tool(call)
+            except Exception as e:  # a bad tool call must not crash the run
+                result = f"Error: the tool failed ({e.__class__.__name__})."
+                run.emit("error", result)
+            messages.append({"role": "tool", "tool_call_id": call.get("id", ""), "content": result})
     run.emit("error", f"The agent stopped after {MAX_TURNS} steps without finishing.")
     return run.events
 
@@ -153,13 +159,21 @@ SCENARIOS = {
 
 
 def _ensure_grant(run: _Run, category: str, text: str):
-    if any(g["category"] == category for g in grants.active_grants(run.conn, "pay_bill")):
-        return
+    """Make sure an unused permission for this category exists, so each scenario starts clean
+    whatever ran before it. A permission the customer confirmed and hasn't used yet is kept."""
+    replaced = None
+    for g in grants.active_grants(run.conn, "pay_bill"):
+        if g["category"] == category:
+            if grants.spent(run.conn, g["id"]) == 0:
+                return
+            grants.revoke_grant(run.conn, g["id"])
+            replaced = g["id"]
     gid = grants.draft_grant(run.conn, text)["grant"]["id"]
     grants.confirm_grant(run.conn, gid)
     g = grants.get_grant(run.conn, gid)
+    note = f" (replacing #{replaced}, which was already used)" if replaced else ""
     run.emit("setup", f"Set-up, as the customer: confirmed permission #{gid} "
-                      f"({g['category']} bills up to {inr(g['max_amount'])}).")
+                      f"({g['category']} bills up to {inr(g['max_amount'])}){note}.")
 
 
 def run_scenario(conn, letter: str, secret: str, publish=None) -> list:
@@ -167,6 +181,8 @@ def run_scenario(conn, letter: str, secret: str, publish=None) -> list:
     if letter not in SCENARIOS:
         raise KeyError(letter)
     run = _Run(conn, secret, publish)
+    conn.execute("UPDATE bills SET status='pending'")  # the bill is due again for each scenario
+    set_bill_poisoned(conn, False)
     _ensure_grant(run, "electricity", "Pay my electricity bill up to ₹5,000 this week")
     if letter == "B":
         _ensure_grant(run, "water", "Pay my water bill up to ₹2,000 this week")

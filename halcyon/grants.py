@@ -189,6 +189,12 @@ def revoke_all(conn) -> int:
     return len(ids)
 
 
+def spent(conn, grant_id) -> float:
+    """Total actually paid out under one permission."""
+    r = conn.execute("SELECT COALESCE(SUM(amount),0) AS s FROM transactions WHERE grant_id=?", (grant_id,)).fetchone()
+    return float(r["s"])
+
+
 def is_active(g, now=None) -> bool:
     return bool(g) and g["status"] == "active" and g["valid_until"] > (now or time.time())
 

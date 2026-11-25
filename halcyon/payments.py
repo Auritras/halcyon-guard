@@ -1,4 +1,8 @@
-"""The payment path shared by the HTTP API, the live agent and the scripted scenarios."""
+"""The payment path shared by the HTTP API, the live agent and the scripted scenarios.
+
+Decide-then-execute happens in ONE database transaction, so two simultaneous
+requests can't both slip under a spending limit, and a revoke can't land in between.
+"""
 from . import audit, bank, gateway, grants
 from .store import transaction
 
@@ -7,15 +11,16 @@ class Conflict(Exception):
     """The request can't move to the asked state (already decided, or its permission is gone)."""
 
 
-def _execute(conn, request_id, amount, payee, secret):
-    return bank.execute(conn, request_id, bank.sign_decision(secret, request_id, amount, payee), secret)
+def _execute(conn, request_id, amount, payee, account, secret):
+    return bank.execute(conn, request_id, bank.sign_decision(secret, request_id, amount, payee, account), secret)
 
 
 def process_payment(conn, token, req: dict, secret: str) -> dict:
     """Gateway decides; only an ALLOW goes on to the bank, carrying a signed decision token."""
-    d = gateway.evaluate(conn, token, req)
-    if d["decision"] == "ALLOW":
-        d["bank"] = _execute(conn, d["request_id"], d["amount"], d["payee"], secret)
+    with transaction(conn):
+        d = gateway.evaluate(conn, token, req)
+        if d["decision"] == "ALLOW":
+            d["bank"] = _execute(conn, d["request_id"], d["amount"], d["payee"], d["account"], secret)
     return d
 
 
@@ -36,10 +41,12 @@ def approve(conn, request_id: int, secret: str) -> dict:
             conn.execute("UPDATE requests SET status='approved' WHERE id=?", (request_id,))
             audit.append(conn, "customer_approved", {"request_id": request_id, "payee": r["payee"],
                                                      "amount": r["amount"]})
+            result = _execute(conn, request_id, r["amount"], r["payee"], r["account"], secret)
+            if not result["ok"]:
+                conn.execute("UPDATE requests SET status='failed' WHERE id=?", (request_id,))
     if refused:
         raise Conflict(refused)
-    result = _execute(conn, request_id, r["amount"], r["payee"], secret)
-    return {"request_id": request_id, "status": "executed" if result["ok"] else "approved", "bank": result}
+    return {"request_id": request_id, "status": "executed" if result["ok"] else "failed", "bank": result}
 
 
 def deny(conn, request_id: int) -> dict:

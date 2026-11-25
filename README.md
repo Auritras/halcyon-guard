@@ -1,4 +1,4 @@
-# Halcyon Guard
+﻿# Halcyon Guard
 
 **Team Halcyon Overflow · BuildX 2026 · Fintech track**
 
@@ -24,10 +24,10 @@ Every agent action goes through one gateway before it can reach the bank:
 2. **The agent logs in** with its own credentials and requests a payment.
 3. **Halcyon Guard runs three checks**, all deterministic rules with no AI involved:
    - **① Verify agent + grant:** valid session, the agent acts for this customer, and an active permission exists.
-   - **② Check transaction:** amount, payee and purpose against the permission, including total spending so far.
+   - **② Check transaction:** amount, payee, destination account and purpose against the permission, including total spending so far.
    - **③ Check behaviour:** new payees, amounts far above the usual, and rapid retries of blocked payments.
 4. **Decision:** any failed check means **BLOCK**. Otherwise, any warning means **PAUSE** and the customer approves or denies it in their app. Otherwise the payment is **ALLOWED**.
-5. **The bank executes only allowed or customer-approved payments.** Each one must carry an HMAC-signed decision token from the gateway. A direct call without one is refused.
+5. **The bank executes only allowed or customer-approved payments.** Each one must carry an HMAC-signed decision token from the gateway, covering the amount, payee and account. A direct call without one is refused. In the same database transaction as the debit, the bank checks again that the permission is still active and the limit isn't exceeded, so simultaneous requests or a last-second revoke can't slip through.
 6. **Every step is chained into the audit log.** Each entry's SHA-256 hash covers the previous entry's hash, so editing any past record breaks the chain from that point on.
 
 The agent can never approve its own paused request: approval needs the customer's session, and the agent's token is rejected on every customer endpoint.
@@ -62,7 +62,7 @@ The agent can never approve its own paused request: approval needs the customer'
 | AI agent | Any OpenAI-compatible chat API: Groq free tier (default `llama-3.3-70b-versatile`) or Ollama (`llama3.1:8b`), via `httpx` |
 | Security | HMAC-SHA256 decision tokens, SHA-256 hash-chained audit log |
 | Frontend | Plain HTML, CSS and JavaScript (no build step) |
-| Tests | pytest: 98 tests covering every gateway rule, the bank, the API, the agent loop and the LLM error paths |
+| Tests | pytest: 115 tests covering every gateway rule, the bank, the API, the agent loop, the LLM error paths and concurrency |
 
 ## Installation and setup
 
@@ -148,7 +148,8 @@ To be transparent with the judges:
 - **Real:** the gateway rules, the three checks, the permission lifecycle, customer-only approval, HMAC-signed execution, the hash-chained audit log, and the live LLM agent's tool calls when a provider is configured.
 - **Simulated:** the bank, the customer and the payees are fictional, and run locally in SQLite. There is no real bank or UPI integration and only one customer.
 - **Deliberate:** the agent's instructions say bills may contain payment instructions from the biller and that it should follow them. That reproduces a realistic, trusting assistant, so the prompt-injection attack can succeed against the *agent*. The point is that the *gateway* still stops it. Live model behaviour can vary from run to run, so scenario D shows the same attack deterministically.
-- **Demo-only controls:** *Tamper*, *Reset* and *Attacker edits the bill* exist only to demonstrate the system and are not authenticated.
+- **Demo-only controls:** *Tamper* and *Reset* exist only to demonstrate the system and are not authenticated. The scenario buttons, the model switch and *Attacker edits the bill* need the customer's session. The dashboard signs in with the fictional demo PIN `1234`.
+- **Scenarios start clean:** each scripted scenario makes sure an unused permission exists, replacing one that was already spent and saying so in the agent feed, so scenarios give the same result in any order.
 
 ## Team members and contributions
 

@@ -1,4 +1,4 @@
-from halcyon import bank, gateway, grants, store
+﻿from halcyon import bank, gateway, grants, store
 
 SECRET = "test-secret"
 
@@ -14,7 +14,7 @@ def _allowed(conn, payee="Sunrise Power", amount=4200):
 def test_valid_token_executes(conn):
     d = _allowed(conn)
     before = store.balance(conn)
-    r = bank.execute(conn, d["request_id"], bank.sign_decision(SECRET, d["request_id"], 4200, "Sunrise Power"), SECRET)
+    r = bank.execute(conn, d["request_id"], bank.sign_decision(SECRET, d["request_id"], 4200, "Sunrise Power", "SUNP-0042-7781"), SECRET)
     assert r["ok"] is True
     assert store.balance(conn) == before - 4200
     assert store.get_payee(conn, "Sunrise Power")["history"][-1] == 4200
@@ -31,13 +31,13 @@ def test_forged_token_refused(conn):
 
 def test_token_for_other_amount_refused(conn):
     d = _allowed(conn)
-    r = bank.execute(conn, d["request_id"], bank.sign_decision(SECRET, d["request_id"], 99, "Sunrise Power"), SECRET)
+    r = bank.execute(conn, d["request_id"], bank.sign_decision(SECRET, d["request_id"], 99, "Sunrise Power", "SUNP-0042-7781"), SECRET)
     assert r["ok"] is False
 
 
 def test_execute_twice_refused(conn):
     d = _allowed(conn)
-    tok = bank.sign_decision(SECRET, d["request_id"], 4200, "Sunrise Power")
+    tok = bank.sign_decision(SECRET, d["request_id"], 4200, "Sunrise Power", "SUNP-0042-7781")
     assert bank.execute(conn, d["request_id"], tok, SECRET)["ok"]
     r = bank.execute(conn, d["request_id"], tok, SECRET)
     assert r["ok"] is False and "already executed" in r["reason"]
@@ -47,7 +47,7 @@ def test_execute_twice_refused(conn):
 def test_blocked_request_refused_even_with_valid_signature(conn):
     d = _allowed(conn, payee="R. Verma", amount=25000)
     assert d["decision"] == "BLOCK"
-    r = bank.execute(conn, d["request_id"], bank.sign_decision(SECRET, d["request_id"], 25000, "R. Verma"), SECRET)
+    r = bank.execute(conn, d["request_id"], bank.sign_decision(SECRET, d["request_id"], 25000, "R. Verma", "SUNP-0042-7781"), SECRET)
     assert r["ok"] is False
     assert store.balance(conn) == 120000
 

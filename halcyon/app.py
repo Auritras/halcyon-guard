@@ -14,6 +14,7 @@ from .config import Settings, get_settings
 from .events import EventBus
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+AGENT_LLM_TIMEOUT = 15  # seconds per model call, so a stalled provider fails fast on stage
 
 
 class PinBody(BaseModel):
@@ -49,7 +50,8 @@ def _bearer(request: Request) -> str | None:
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
     bus = EventBus()
-    agent_lock = threading.Lock()
+    agent_lock = threading.Lock()     # one live agent run at a time
+    scenario_lock = threading.Lock()  # scripted runs have their own lock, so a stalled model can't block them
     app = FastAPI(title="Halcyon Guard", version="1.0")
     app.state.settings = settings
     app.state.bus = bus
@@ -182,6 +184,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "groq_key_set": bool(settings.groq_api_key),
             "scenarios": agent.SCENARIOS,
             "agent_running": agent_lock.locked(),
+            "scenario_running": scenario_lock.locked(),
         }
 
     # --- audit log ---
@@ -204,29 +207,29 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         changed()
         return {"ok": True}
 
-    @app.post("/api/bills/poison")
+    @app.post("/api/bills/poison", dependencies=[Depends(require_customer)])
     def poison(body: PoisonBody, conn=Depends(db)):
         store.set_bill_poisoned(conn, body.on)
         audit.append(conn, "bill_poisoned" if body.on else "bill_restored", {"bill_id": 2 if body.on else 1})
         changed()
         return {"poisoned": body.on}
 
-    @app.post("/api/provider")
+    @app.post("/api/provider", dependencies=[Depends(require_customer)])
     def provider(body: ProviderBody):
         settings.llm_provider = body.provider
         changed()
         return {"provider": settings.llm_provider}
 
-    def _with_agent(fn):
-        if not agent_lock.acquire(blocking=False):
-            raise HTTPException(409, "The agent is already running.")
+    def _with_lock(lock, busy_msg, fn):
+        if not lock.acquire(blocking=False):
+            raise HTTPException(409, busy_msg)
         conn = store.connect(settings.db_path)
         try:
             changed()
             return fn(conn)
         finally:
             conn.close()
-            agent_lock.release()
+            lock.release()
             changed()
 
     def publish_agent(event):
@@ -237,19 +240,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.post("/api/agent/run")
     def run_agent(body: TaskBody):
         def go(conn):
-            chat = lambda messages, tools: llm.chat(messages, tools, settings=settings)  # noqa: E731
+            def chat(messages, tools):
+                return llm.chat(messages, tools, settings=settings, timeout=AGENT_LLM_TIMEOUT)
             return {"events": agent.run_task(conn, body.task, chat, settings.hmac_secret, publish_agent)}
-        return _with_agent(go)
+        return _with_lock(agent_lock, "The agent is already running.", go)
 
-    @app.post("/api/agent/scenario/{letter}")
+    @app.post("/api/agent/scenario/{letter}", dependencies=[Depends(require_customer)])
     def scenario(letter: str):
+        """Scripted scenarios include customer set-up steps, so they need the customer's session."""
         if letter.upper() not in agent.SCENARIOS:
             raise HTTPException(404, "Unknown scenario.")
 
         def go(conn):
             events = agent.run_scenario(conn, letter, settings.hmac_secret, publish_agent)
             return {"events": events, "decisions": [e["decision"] for e in events if e["kind"] == "decision"]}
-        return _with_agent(go)
+        return _with_lock(scenario_lock, "A scenario is already running.", go)
 
     @app.get("/api/events")
     async def events(request: Request):

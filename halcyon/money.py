@@ -15,7 +15,10 @@ def parse_amount(value) -> float | None:
     if isinstance(value, bool) or value is None:
         return None
     if isinstance(value, (int, float)):
-        v = float(value)
+        try:
+            v = float(value)
+        except OverflowError:  # e.g. 10**400
+            return None
     elif isinstance(value, str):
         s = re.sub(r"^(₹|rs\.?|inr)\s*", "", value.strip(), flags=re.I).replace(",", "").strip()
         if not _AMOUNT_RE.match(s):

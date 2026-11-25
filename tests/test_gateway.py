@@ -1,4 +1,4 @@
-import pytest
+﻿import pytest
 
 from halcyon import bank, gateway, grants
 
@@ -16,7 +16,7 @@ def token(conn):
     return gateway.login(conn, "agent-01", "demo-secret")
 
 
-def pay(payee, amount, account="X", purpose="Electricity bill"):
+def pay(payee, amount, account="", purpose="Electricity bill"):
     return {"action": "pay_bill", "payee": payee, "account": account, "amount": amount, "purpose": purpose}
 
 
@@ -117,7 +117,7 @@ def test_cumulative_limit(conn, token):
         d = gateway.evaluate(conn, token, pay("Sunrise Power", 3000))
         assert d["decision"] == expected, d
         if expected == "ALLOW":
-            assert bank.execute(conn, d["request_id"], bank.sign_decision(SECRET, d["request_id"], 3000, "Sunrise Power"), SECRET)["ok"]
+            assert bank.execute(conn, d["request_id"], bank.sign_decision(SECRET, d["request_id"], 3000, "Sunrise Power", "SUNP-0042-7781"), SECRET)["ok"]
     assert check(d, 2)["result"] == "fail"
 
 

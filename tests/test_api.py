@@ -1,4 +1,4 @@
-import pytest
+﻿import pytest
 from fastapi.testclient import TestClient
 
 from halcyon.app import create_app
@@ -32,7 +32,7 @@ def grant(client, cust, text="Pay my electricity bill up to ₹5,000 this week")
 
 def pay(client, agent, payee, amount, purpose="bill"):
     return client.post("/api/agent/pay", headers=agent,
-                       json={"action": "pay_bill", "payee": payee, "account": "A", "amount": amount, "purpose": purpose}).json()
+                       json={"action": "pay_bill", "payee": payee, "amount": amount, "purpose": purpose}).json()
 
 
 def balance(client):
@@ -139,9 +139,9 @@ def test_state_shape(client):
     assert "pin" not in s["customer"]
 
 
-def test_switch_provider(client):
-    assert client.post("/api/provider", json={"provider": "ollama"}).json()["provider"] == "ollama"
-    assert client.post("/api/provider", json={"provider": "evil"}).status_code == 422
+def test_switch_provider(client, cust):
+    assert client.post("/api/provider", headers=cust, json={"provider": "ollama"}).json()["provider"] == "ollama"
+    assert client.post("/api/provider", headers=cust, json={"provider": "evil"}).status_code == 422
 
 
 def test_agent_run_without_provider_points_to_scenarios(client, cust):
@@ -151,12 +151,12 @@ def test_agent_run_without_provider_points_to_scenarios(client, cust):
     assert "scripted scenarios" in events[-1]["text"]
 
 
-def test_scenarios_over_http(client):
-    assert client.post("/api/agent/scenario/A").json()["decisions"] == ["ALLOW"]
-    assert client.post("/api/agent/scenario/Z").status_code == 404
+def test_scenarios_over_http(client, cust):
+    assert client.post("/api/agent/scenario/A", headers=cust).json()["decisions"] == ["ALLOW"]
+    assert client.post("/api/agent/scenario/Z", headers=cust).status_code == 404
 
 
-def test_poison_toggle(client):
-    client.post("/api/bills/poison", json={"on": True})
+def test_poison_toggle(client, cust):
+    client.post("/api/bills/poison", headers=cust, json={"on": True})
     bills = client.get("/api/state").json()["bills"]
     assert [b["id"] for b in bills] == [2]

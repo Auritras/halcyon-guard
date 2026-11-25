@@ -54,7 +54,7 @@ function render() {
   renderTxns();
   renderAudit();
   $("run").disabled = state.agent_running;
-  document.querySelectorAll("#scenarios button").forEach((b) => (b.disabled = state.agent_running));
+  document.querySelectorAll("#scenarios button").forEach((b) => (b.disabled = state.scenario_running));
 }
 
 function renderProviderHint() {
@@ -159,9 +159,20 @@ function renderAudit() {
 }
 
 // ---------- gateway animation ----------
+// Decisions play one after another, so a two-payment run (e.g. scenario D) shows both.
 let animToken = 0;
-async function showDecision(d) {
-  const my = ++animToken;
+let animQueue = Promise.resolve();
+function showDecision(d) {
+  const my = animToken;
+  animQueue = animQueue.then(() => playDecision(d, my)).then(() => (reduceMotion ? null : new Promise((r) => setTimeout(r, 900))));
+  return animQueue;
+}
+function clearDecisions() {
+  animToken++;
+  animQueue = Promise.resolve();
+}
+async function playDecision(d, my) {
+  if (my !== animToken) return;
   const req = d.request || {};
   const amount = d.amount === null || d.amount === undefined ? esc(JSON.stringify(req.amount ?? null)) : inr(d.amount);
   $("request").innerHTML = `<strong>${amount}</strong> to ${esc(d.payee)}` + (req.purpose ? ` <span class="muted">for “${esc(req.purpose)}”</span>` : "");
@@ -224,10 +235,11 @@ function connectEvents() {
     else if (e.type === "agent") handleAgentEvent(e);
   };
 }
-async function runAgentCall(path, body) {
+async function runAgentCall(path, body, customer = false) {
   $("feed").innerHTML = "";
+  clearDecisions();
   try {
-    const res = await post(path, body);
+    const res = await post(path, body, customer);
     if (!sseOpen) res.events.forEach(handleAgentEvent); // fallback if live updates are down
   } catch (err) { toast(err.message); }
 }
@@ -243,7 +255,7 @@ document.addEventListener("click", async (ev) => {
     else if (d.approve) { const r = await post(`/api/requests/${d.approve}/approve`, null, true); toast(r.bank.ok ? `Approved once. Paid, new balance ${inr(r.bank.balance)}.` : `Approved, but the bank refused: ${r.bank.reason}`); }
     else if (d.deny) { await post(`/api/requests/${d.deny}/deny`, null, true); toast("Denied. Nothing was paid."); }
     else if ("revokeAll" in d) { const r = await post("/api/agent/revoke-access", null, true); toast(`Agent access revoked (${r.revoked} permission(s)).`); }
-    else if (d.scenario) { await runAgentCall(`/api/agent/scenario/${d.scenario}`); }
+    else if (d.scenario) { await runAgentCall(`/api/agent/scenario/${d.scenario}`, null, true); }
     else if (d.audit) { showAuditEntry(Number(d.audit)); }
   } catch (err) { toast(err.message); }
 });
@@ -252,6 +264,7 @@ function showAuditEntry(seq) {
   const e = state.audit.find((x) => x.seq === seq);
   if (!e) return;
   if (e.kind === "gateway_decision") {
+    clearDecisions();
     showDecision({ ...e.data, request: {} });
     toast(`Replaying the checks recorded in entry #${seq}.`);
   } else {
@@ -281,15 +294,21 @@ $("task-form").addEventListener("submit", (ev) => {
 });
 
 $("poison").addEventListener("change", async (ev) => {
-  try { await post("/api/bills/poison", { on: ev.target.checked }); } catch (err) { toast(err.message); }
+  try { await post("/api/bills/poison", { on: ev.target.checked }, true); } catch (err) { toast(err.message); }
 });
 
 $("provider").addEventListener("change", async (ev) => {
-  try { await post("/api/provider", { provider: ev.target.value }); } catch (err) { toast(err.message); }
+  try { await post("/api/provider", { provider: ev.target.value }, true); } catch (err) { toast(err.message); }
 });
 
+async function login() {
+  try { customerToken = (await post("/api/customer/login", { pin: PIN })).token; } catch (err) { toast(err.message); }
+}
+
 $("reset").addEventListener("click", async () => {
-  await post("/api/reset");
+  try { await post("/api/reset"); } catch (err) { toast(err.message); return; }
+  await login(); // a fresh session, in case the old one is gone
+  clearDecisions();
   brokenAt = null;
   $("feed").innerHTML = "";
   $("intent-result").innerHTML = "";
@@ -321,7 +340,7 @@ $("tamper").addEventListener("click", async () => {
 // ---------- start ----------
 async function start() {
   document.querySelectorAll("#gates li").forEach((g) => (g.dataset.default = g.querySelector("span").textContent));
-  try { customerToken = (await post("/api/customer/login", { pin: PIN })).token; } catch (err) { toast(err.message); }
+  await login();
   await refresh();
   $("scenarios").innerHTML = Object.entries(state.scenarios).map(([k, v]) => `<button data-scenario="${k}"><b>${k}</b><span>${esc(v)}</span></button>`).join("");
   connectEvents();

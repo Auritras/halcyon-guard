@@ -26,7 +26,8 @@ def _endpoint(settings: Settings):
     raise LLMUnavailable("No AI provider is selected")
 
 
-def chat(messages, tools=None, settings: Settings | None = None, transport=None, json_mode=False) -> dict:
+def chat(messages, tools=None, settings: Settings | None = None, transport=None, json_mode=False,
+         timeout: float = TIMEOUT) -> dict:
     """Send one chat completion request and return the assistant message dict."""
     settings = settings or Settings()
     base, model, headers, label = _endpoint(settings)
@@ -37,10 +38,10 @@ def chat(messages, tools=None, settings: Settings | None = None, transport=None,
     if json_mode:
         body["response_format"] = {"type": "json_object"}
     try:
-        with httpx.Client(timeout=TIMEOUT, transport=transport) as client:
+        with httpx.Client(timeout=timeout, transport=transport) as client:
             r = client.post(f"{base}/chat/completions", json=body, headers=headers)
     except httpx.TimeoutException:
-        raise LLMUnavailable(f"{label} took longer than {TIMEOUT}s to answer") from None
+        raise LLMUnavailable(f"{label} took longer than {timeout:g}s to answer") from None
     except httpx.HTTPError as e:
         hint = " Is Ollama running?" if label == "Ollama" else " Check the internet connection."
         raise LLMUnavailable(f"Can't reach {label} ({e.__class__.__name__}).{hint}") from None
