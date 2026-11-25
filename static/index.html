@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Halcyon Guard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Lora:wght@600;700&display=swap">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <h1>Halcyon Guard</h1>
+      <p>Every agent payment is checked against what the customer actually asked for.</p>
+    </div>
+    <div class="controls">
+      <label for="provider">AI model for the agent</label>
+      <select id="provider">
+        <option value="groq">Groq (free, online)</option>
+        <option value="ollama">Ollama (local, offline)</option>
+        <option value="none">None (scripted only)</option>
+      </select>
+      <button id="reset" class="ghost">Reset demo</button>
+    </div>
+  </header>
+
+  <main class="grid">
+    <!-- Customer -->
+    <section class="col customer" aria-labelledby="h-customer">
+      <h2 id="h-customer">Customer app</h2>
+      <p class="who" id="who">Signing in…</p>
+
+      <form id="intent-form" class="card">
+        <label for="intent">Tell the agent what it may do</label>
+        <textarea id="intent" rows="2">Pay my electricity bill up to ₹5,000 this week</textarea>
+        <button type="submit">Draft permission</button>
+        <div id="intent-result" aria-live="polite"></div>
+      </form>
+
+      <h3>Permissions</h3>
+      <div id="grants" class="stack"></div>
+
+      <h3>Waiting for you</h3>
+      <div id="pending" class="stack" aria-live="polite"></div>
+
+      <h3>Recently blocked</h3>
+      <div id="blocked" class="stack"></div>
+      <button id="revoke-all" class="danger">Revoke agent access</button>
+    </section>
+
+    <!-- Agent -->
+    <section class="col agent" aria-labelledby="h-agent">
+      <h2 id="h-agent">AI agent</h2>
+      <form id="task-form" class="card">
+        <label for="task">Task for the agent</label>
+        <input id="task" value="Pay my pending bills" maxlength="500">
+        <button type="submit" id="run">Run live agent</button>
+        <p class="hint" id="provider-hint"></p>
+      </form>
+
+      <div class="card bill">
+        <div class="bill-head">
+          <h3>Bill the agent will read</h3>
+          <label class="switch"><input type="checkbox" id="poison"> Attacker edits the bill</label>
+        </div>
+        <pre id="bill-text"></pre>
+      </div>
+
+      <h3>Scripted scenarios <span class="muted">(no AI needed)</span></h3>
+      <div id="scenarios" class="scenarios"></div>
+
+      <h3>What the agent did</h3>
+      <ol id="feed" class="feed" aria-live="polite"></ol>
+    </section>
+
+    <!-- Gateway + bank -->
+    <section class="col guard" aria-labelledby="h-guard">
+      <h2 id="h-guard">Halcyon Guard</h2>
+      <div class="request" id="request"><span class="muted">Waiting for the agent's first payment request.</span></div>
+      <ol class="gates" id="gates">
+        <li data-n="1"><b>Verify agent + grant</b><span>Identity, owner and an active permission.</span></li>
+        <li data-n="2"><b>Check transaction</b><span>Amount, payee and purpose against the permission.</span></li>
+        <li data-n="3"><b>Check behaviour</b><span>New payees, unusual amounts, rapid retries.</span></li>
+      </ol>
+      <div class="verdict" id="verdict" aria-live="assertive"></div>
+
+      <div class="bank">
+        <h3>Bank</h3>
+        <p class="balance"><span id="balance">—</span><small>Asha's balance</small></p>
+        <ul id="txns" class="txns"></ul>
+      </div>
+    </section>
+  </main>
+
+  <section class="audit" aria-labelledby="h-audit">
+    <div class="audit-head">
+      <h2 id="h-audit">Audit log</h2>
+      <p class="muted">Each entry's hash includes the one before it, so editing any past entry breaks the chain from that point on.</p>
+      <div class="audit-actions">
+        <span id="chain" class="chain"></span>
+        <button id="verify" class="ghost">Verify chain</button>
+        <button id="tamper" class="ghost">Tamper with a decision</button>
+      </div>
+    </div>
+    <ol id="audit" class="audit-list"></ol>
+  </section>
+
+  <div id="toast" class="toast" role="status"></div>
+  <script src="app.js"></script>
+</body>
+</html>
