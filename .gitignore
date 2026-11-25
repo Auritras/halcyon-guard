@@ -8,3 +8,4 @@ __pycache__/
 *.zip
 .claude/
 docs/Halcyon-Guard-Video-Script.pdf
+docs/demo-script.md
