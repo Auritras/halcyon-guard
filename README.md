@@ -151,17 +151,7 @@ To be transparent with the judges:
 - **Demo-only controls:** *Tamper* and *Reset* exist only to demonstrate the system and are not authenticated. The scenario buttons, the model switch and *Attacker edits the bill* need the customer's session. The dashboard signs in with the fictional demo PIN `1234`.
 - **Scenarios start clean:** each scripted scenario makes sure an unused permission exists, replacing one that was already spent and saying so in the agent feed, so scenarios give the same result in any order.
 
-## Team members and contributions
-
-<!-- Fill in before submitting: every member, and what each person built. -->
-
-| Member | Role | Contributions |
-|---|---|---|
-| _Name_ | _e.g. Backend / gateway_ | _…_ |
-| _Name_ | _e.g. Frontend / demo_ | _…_ |
-| _Name_ | _e.g. Pitch / video_ | _…_ |
-
-### Use of AI tools
+## Use of AI tools
 
 BuildX allows all AI tools. In line with Rule 5 (transparent use of tools), we used **Claude Code (Anthropic)** as a pair programmer to write code and tests from our design and plan in `docs/`. The team chose the problem, the architecture, the rules and the scenarios, and reviewed, ran and tested the result. The live demo agent itself uses an open model through Groq or Ollama.
 
