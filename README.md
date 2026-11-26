@@ -1,6 +1,6 @@
 ﻿# Halcyon Guard
 
-**Team Halcyon Overflow · BuildX 2026 · Fintech track**
+**Team Code Rangers · BuildX 2026 · Fintech track**
 
 Halcyon Guard is a policy gateway that sits between an AI agent and a bank. Every payment the agent tries is checked against what the customer actually asked for (purpose, payee, spending limit and time window) before the bank carries it out. The gateway's answer is always **allow**, **pause** (the customer decides) or **block**, with a one-sentence reason in plain English. Every decision goes into a tamper-evident audit log.
 
@@ -174,7 +174,7 @@ To be transparent with the judges:
 
 ## Team members
 
-**Team Halcyon Overflow**
+**Team Code Rangers**
 
 - Auritras Maitra
 - Avirup Nag

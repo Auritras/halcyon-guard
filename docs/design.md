@@ -1,6 +1,6 @@
 # Halcyon Guard — BuildX demo design
 
-Team Halcyon Overflow · 2026-11-21
+Team Code Rangers · 2026-11-21
 
 ## 1. Intent and why
 
